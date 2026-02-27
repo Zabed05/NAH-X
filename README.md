@@ -1,6 +1,44 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+The Communication Bridge
+An AI-powered sign language translation bridge that converts hand gestures into real-time text and speech.
+
+Features
+Real-time Gesture Recognition: Uses MediaPipe to track hand landmarks and translate them into meaningful words.
+
+Text & Speech Output: Displays the detected gesture as text and speaks it aloud using the browser's speech synthesis.
+
+Accessibility Focused: Designed as a communication aid for the deaf and hard-of-hearing community.
+
+Responsive UI: Built with React and Tailwind CSS for a seamless user experience.
+
+How to Run Locally
+Prerequisites
+Node.js installed on your machine.
+
+Installation & Setup
+Clone the repository (or download the files).
+
+Install dependencies:
+
+Bash
+npm install
+Run the development server:
+
+Bash
+npm run dev
+Open the provided local URL in your browser to start the application.
+
+Technologies Used
+React: Frontend framework.
+
+Vite: Build tool.
+
+MediaPipe: AI vision tasks for hand tracking.
+
+Tailwind CSS: Styling.
+
+Framer Motion: UI animations.
+
+Lucide React: Icons.
 
 # Run and deploy your AI Studio app
 
