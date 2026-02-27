@@ -1,33 +1,33 @@
-The Communication Bridge
+# The Communication Bridge
 An AI-powered sign language translation bridge that converts hand gestures into real-time text and speech.
 
-Features
+# Features
 Real-time Gesture Recognition: Uses MediaPipe to track hand landmarks and translate them into meaningful words.
 
-Text & Speech Output: Displays the detected gesture as text and speaks it aloud using the browser's speech synthesis.
+## Text & Speech Output: Displays the detected gesture as text and speaks it aloud using the browser's speech synthesis.
 
-Accessibility Focused: Designed as a communication aid for the deaf and hard-of-hearing community.
+## Accessibility Focused: Designed as a communication aid for the deaf and hard-of-hearing community.
 
-Responsive UI: Built with React and Tailwind CSS for a seamless user experience.
+## Responsive UI: Built with React and Tailwind CSS for a seamless user experience.
 
-How to Run Locally
+# How to Run Locally
 Prerequisites
 Node.js installed on your machine.
 
 Installation & Setup
 Clone the repository (or download the files).
 
-Install dependencies:
+# Install dependencies:
 
-Bash
+## Bash
 npm install
 Run the development server:
 
-Bash
+## Bash
 npm run dev
 Open the provided local URL in your browser to start the application.
 
-Technologies Used
+# Technologies Used
 React: Frontend framework.
 
 Vite: Build tool.
