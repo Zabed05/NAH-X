@@ -105,11 +105,12 @@ export default function App() {
     const hands = result.landmarks;
     const getHandData = (landmarks: any[]) => {
       const isFingerUp = (tip: number, pip: number, mcp: number) => {
-        // More robust: tip must be significantly above pip and mcp
-        // Also check distance to ensure it's not just a perspective trick
+        // Tip must be significantly above PIP and MCP
         const dy1 = landmarks[pip].y - landmarks[tip].y;
         const dy2 = landmarks[mcp].y - landmarks[pip].y;
-        return dy1 > 0.05 && dy2 > 0.02;
+        // Added a check for verticality to avoid perspective errors
+        const dx = Math.abs(landmarks[tip].x - landmarks[mcp].x);
+        return dy1 > 0.04 && (dy1 + dy2) > 0.06 && dx < 0.1;
       };
 
       const indexUp = isFingerUp(8, 6, 5);
@@ -117,18 +118,38 @@ export default function App() {
       const ringUp = isFingerUp(16, 14, 13);
       const pinkyUp = isFingerUp(20, 18, 17);
       
-      // Thumb is tricky, use horizontal distance relative to index MCP
-      const thumbUp = Math.abs(landmarks[4].x - landmarks[5].x) > 0.12;
+      // Direction-agnostic extension check for index finger
+      const indexExtended = Math.sqrt(
+        Math.pow(landmarks[8].x - landmarks[5].x, 2) + 
+        Math.pow(landmarks[8].y - landmarks[5].y, 2)
+      ) > 0.15;
 
-      // Check for "O" shape (Food)
+      // Thumb is tricky. Check if it's extended away from the index finger
+      const thumbDist = Math.sqrt(
+        Math.pow(landmarks[4].x - landmarks[5].x, 2) + 
+        Math.pow(landmarks[4].y - landmarks[5].y, 2)
+      );
+      const thumbUp = thumbDist > 0.12;
+
+      // Check for "O" shape (Food) - Thumb tip close to index and middle tips
       const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
-      const isFoodShape = dist(landmarks[8], landmarks[4]) < 0.06 && dist(landmarks[12], landmarks[4]) < 0.06;
+      const isFoodShape = dist(landmarks[4], landmarks[8]) < 0.05 && dist(landmarks[4], landmarks[12]) < 0.05;
 
-      // Check for pointing direction
-      const isPointingLeft = landmarks[8].x < landmarks[5].x - 0.15;
-      const isPointingRight = landmarks[8].x > landmarks[5].x + 0.15;
+      // Check for pointing direction (relative to MCP)
+      const isPointingLeft = landmarks[8].x > landmarks[5].x + 0.12;
+      const isPointingRight = landmarks[8].x < landmarks[5].x - 0.12;
 
-      return { indexUp, middleUp, ringUp, pinkyUp, thumbUp, isFoodShape, isPointingLeft, isPointingRight, landmarks };
+      // Check for tight fist (tips close to MCPs)
+      const isTightFist = [8, 12, 16, 20].every((tip, i) => {
+        const mcp = [5, 9, 13, 17][i];
+        const d = Math.sqrt(
+          Math.pow(landmarks[tip].x - landmarks[mcp].x, 2) +
+          Math.pow(landmarks[tip].y - landmarks[mcp].y, 2)
+        );
+        return d < 0.12;
+      });
+
+    return { indexUp, indexExtended, middleUp, ringUp, pinkyUp, thumbUp, isFoodShape, isPointingLeft, isPointingRight, isTightFist, landmarks };
     };
 
     const h1 = getHandData(hands[0]);
@@ -137,43 +158,60 @@ export default function App() {
     // TWO HAND GESTURES
     if (h1 && h2) {
       const h1Flat = h1.indexUp && h1.middleUp && h1.ringUp && h1.pinkyUp;
-      const h2Fist = !h2.indexUp && !h2.middleUp && !h2.ringUp && !h2.pinkyUp;
+      const h2Fist = h2.isTightFist;
       const h2Flat = h2.indexUp && h2.middleUp && h2.ringUp && h2.pinkyUp;
-      const h1Fist = !h1.indexUp && !h1.middleUp && !h1.ringUp && !h1.pinkyUp;
+      const h1Fist = h1.isTightFist;
       
       if ((h1Flat && h2Fist) || (h2Flat && h1Fist)) return "HELP";
       if (h1Flat && h2Flat) return "STOP";
     }
 
-    // SINGLE HAND GESTURES
-    if (h1.isFoodShape) return "FOOD";
-    if (h1.thumbUp && !h1.indexUp && !h1.middleUp && !h1.ringUp && !h1.pinkyUp) return "GOOD";
-    if (!h1.thumbUp && !h1.indexUp && !h1.middleUp && !h1.ringUp && h1.pinkyUp) return "BAD";
-    if (h1.indexUp && h1.pinkyUp && !h1.middleUp && !h1.ringUp) return "LOVE";
+    // SINGLE HAND GESTURES - Priority order for mutual exclusivity
     
+    // 1. Complex Shapes
+    if (h1.isFoodShape) return "FOOD";
+    
+    // 2. Specific Finger Combinations
+    if (h1.indexUp && !h1.middleUp && h1.ringUp && h1.pinkyUp) return "MEDICINE";
+    if (h1.indexUp && h1.thumbUp && !h1.middleUp && !h1.ringUp && !h1.pinkyUp) return "DANGER";
+    if (!h1.indexUp && !h1.middleUp && !h1.ringUp && h1.pinkyUp && !h1.thumbUp) return "BAD";
+    if (h1.thumbUp && !h1.indexUp && !h1.middleUp && !h1.ringUp && !h1.pinkyUp) return "GOOD";
+
+    // 3. Index and Middle combinations
     if (h1.indexUp && h1.middleUp && !h1.ringUp && !h1.pinkyUp) {
       const d = Math.abs(h1.landmarks[8].x - h1.landmarks[12].x);
-      if (d < 0.04) return "REST ROOM";
+      if (d < 0.03) return "REST ROOM";
       if (h1.thumbUp) return "NO";
       return "WAIT";
     }
 
-    if (h1.indexUp && h1.middleUp && h1.ringUp && h1.pinkyUp && h1.thumbUp) return "HELLO";
-    if (h1.indexUp && h1.middleUp && h1.ringUp && h1.pinkyUp && !h1.thumbUp) return "THANK YOU";
-    
-    if (h1.indexUp && !h1.middleUp && !h1.ringUp && !h1.pinkyUp) {
+    // 4. Water (3 fingers: Index, Middle, Ring)
+    if (h1.indexUp && h1.middleUp && h1.ringUp && !h1.pinkyUp) return "WATER";
+
+    // 5. All fingers up (with variations)
+    if (h1.indexUp && h1.middleUp && h1.ringUp && h1.pinkyUp) {
+      // Check for tilt (Sleep)
+      const angle = Math.abs(h1.landmarks[8].x - h1.landmarks[0].x);
+      if (angle > 0.22) return "SLEEP";
+      
+      // Distinguish between Hello, Thank You, and Please
+      const spread = Math.abs(h1.landmarks[8].x - h1.landmarks[20].x);
+      if (spread > 0.2) return "PLEASE";
+      if (h1.thumbUp) return "HELLO";
+      return "THANK YOU";
+    }
+
+    // 6. Pointing / Go / Left / Right
+    if (h1.indexExtended && !h1.middleUp && !h1.ringUp && !h1.pinkyUp) {
       if (h1.isPointingLeft) return "LEFT";
       if (h1.isPointingRight) return "RIGHT";
-      return "GO";
+      if (h1.indexUp) return "GO";
     }
-    if (!h1.indexUp && !h1.middleUp && !h1.ringUp && !h1.pinkyUp && !h1.thumbUp) return "SORRY";
-    if (h1.indexUp && h1.middleUp && h1.ringUp && !h1.pinkyUp) return "WATER";
-    if (h1.indexUp && !h1.middleUp && h1.ringUp && h1.pinkyUp) return "MEDICINE";
-    if (h1.indexUp && h1.thumbUp && !h1.middleUp && !h1.ringUp && !h1.pinkyUp) return "DANGER";
 
-    if (h1.indexUp && h1.middleUp && h1.ringUp && h1.pinkyUp) {
-        const angle = Math.abs(h1.landmarks[8].x - h1.landmarks[0].x);
-        if (angle > 0.25) return "SLEEP";
+    // 7. Fists
+    if (h1.isTightFist) {
+      if (h1.thumbUp) return "YES";
+      return "SORRY";
     }
 
     return null;
@@ -284,6 +322,25 @@ export default function App() {
   };
   const toggleSpeech = () => setIsSpeechEnabled(!isSpeechEnabled);
 
+  const playSOS = () => {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+    
+    gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 1);
+  };
+
+
   return (
     <div className="min-h-screen flex flex-col bg-background-dark text-white font-display overflow-hidden">
       {/* Header */}
@@ -294,10 +351,13 @@ export default function App() {
               <Users className="text-background-dark w-6 h-6" strokeWidth={3} />
             </div>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-              The Communication Bridge
+              SignFlux
             </h1>
           </div>
-          <button className="bg-sos-red hover:bg-red-600 text-white px-6 md:px-8 py-2 md:py-3 rounded-xl font-bold text-lg md:text-xl shadow-lg transition-all active:scale-95 flex items-center gap-2">
+          <button 
+            onClick={playSOS}
+            className="bg-sos-red hover:bg-red-600 text-white px-6 md:px-8 py-2 md:py-3 rounded-xl font-bold text-lg md:text-xl shadow-lg transition-all active:scale-95 flex items-center gap-2"
+          >
             <AlertTriangle className="w-5 h-5 md:w-6 md:h-6" />
             SOS
           </button>
@@ -361,22 +421,27 @@ export default function App() {
           </div>
 
           {/* Waveform Animation */}
-          <div className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 flex items-end gap-1.5 h-10 md:h-14 z-10">
-            {[0.4, 0.7, 1, 0.6, 0.9, 0.5].map((opacity, i) => (
-              <motion.div
-                key={i}
-                className="w-1.5 bg-accent-blue rounded-full"
-                animate={{ 
-                  height: isTracking ? [10, 30 + (i * 5), 15] : 4 
-                }}
-                transition={{ 
-                  duration: 0.6 + (i * 0.1), 
-                  repeat: Infinity, 
-                  ease: "easeInOut" 
-                }}
-                style={{ opacity }}
-              />
-            ))}
+          <div className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-10">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">
+              Hold sign steady to translate
+            </p>
+            <div className="flex items-end gap-1.5 h-10 md:h-14">
+              {[0.4, 0.7, 1, 0.6, 0.9, 0.5].map((opacity, i) => (
+                <motion.div
+                  key={i}
+                  className="w-1.5 bg-accent-blue rounded-full"
+                  animate={{ 
+                    height: isTracking ? [10, 30 + (i * 5), 15] : 4 
+                  }}
+                  transition={{ 
+                    duration: 0.6 + (i * 0.1), 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }}
+                  style={{ opacity }}
+                />
+              ))}
+            </div>
           </div>
         </div>
 
@@ -489,11 +554,11 @@ export default function App() {
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px] md:text-xs font-bold uppercase tracking-wider text-white/60">
             <div className="p-2 bg-black/40 rounded-lg border border-white/5">🖐️ Hello / Stop</div>
-            <div className="p-2 bg-black/40 rounded-lg border border-white/5">✊ Sorry / Yes</div>
+            <div className="p-2 bg-black/40 rounded-lg border border-white/5">✊ Yes / Sorry</div>
             <div className="p-2 bg-black/40 rounded-lg border border-white/5">👍 Good</div>
             <div className="p-2 bg-black/40 rounded-lg border border-white/5">👎 Bad</div>
             <div className="p-2 bg-black/40 rounded-lg border border-white/5">🤌 Food</div>
-            <div className="p-2 bg-black/40 rounded-lg border border-white/5">🤟 Love</div>
+            <div className="p-2 bg-black/40 rounded-lg border border-white/5">🙏 Please / Thank You</div>
             <div className="p-2 bg-black/40 rounded-lg border border-white/5">☝️ Go / Point</div>
             <div className="p-2 bg-black/40 rounded-lg border border-white/5">👈 Left</div>
             <div className="p-2 bg-black/40 rounded-lg border border-white/5">👉 Right</div>
