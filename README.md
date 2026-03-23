@@ -44,7 +44,7 @@ Lucide React: Icons.
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/0eac6c65-77df-401d-9317-4318879b84d3
+View your app : (https://gesture-to-speech.vercel.app/)
 
 ## Run Locally
 
